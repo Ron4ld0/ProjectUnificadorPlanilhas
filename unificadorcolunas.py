@@ -2,9 +2,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
 
-# ==============================================================================
-# --- CONFIGURAÇÃO DAS COLUNAS (NOVA ESTRUTURA MAIS SEGURA) ---
-# ==============================================================================
+# Define a estrutura para unificação de colunas.
+# Cada dicionário especifica uma coluna primária, colunas de fallback e o nome da coluna final.
 COLUNAS_MAPEADAS = [
     {
         "primaria": "Endereço Entrega",
@@ -28,48 +27,43 @@ COLUNAS_MAPEADAS = [
     }
 ]
 
-
-# ==============================================================================
-# --- LÓGICA DE PROCESSAMENTO (TOTALMENTE REESCRITA E MAIS SIMPLES) ---
-# ==============================================================================
 def processar_planilha(arquivo_entrada, arquivo_saida):
     """
-    Lê a planilha, cria as novas colunas unificadas com uma lógica mais segura
-    e salva o resultado.
+    Lê uma planilha (CSV ou Excel), unifica as colunas de endereço conforme o mapeamento
+    e salva o resultado em um novo arquivo Excel.
     """
     try:
-        # Tenta ler o arquivo, seja CSV ou Excel
+        # Tenta ler o arquivo como CSV, se falhar, tenta como Excel.
         try:
             df = pd.read_csv(arquivo_entrada)
         except Exception:
             df = pd.read_excel(arquivo_entrada)
 
-        # Para cada mapeamento, cria a nova coluna final
+        # Itera sobre as configurações de mapeamento para criar as colunas unificadas.
         for mapeamento in COLUNAS_MAPEADAS:
             col_primaria = mapeamento["primaria"]
             lista_fallbacks = mapeamento["fallbacks"]
             col_final = mapeamento["final"]
 
-            # Garante que a coluna primária existe e preenche células vazias
+            # Garante que a coluna primária exista para evitar erros.
             if col_primaria not in df.columns:
                 df[col_primaria] = ''
             df[col_primaria] = df[col_primaria].fillna('')
 
-            # Inicia a coluna final com os valores da coluna primária
+            # Inicia a coluna final com os valores da coluna primária.
             df[col_final] = df[col_primaria].astype(str).str.strip()
 
-            # Agora, para cada coluna de fallback na lista...
+            # Preenche os valores vazios na coluna final usando as colunas de fallback.
             for col_fallback in lista_fallbacks:
-                # Garante que a coluna de fallback existe e preenche células vazias
                 if col_fallback not in df.columns:
                     df[col_fallback] = ''
                 df[col_fallback] = df[col_fallback].fillna('')
 
-                # Onde a coluna final ainda estiver vazia, usa o valor do fallback atual
+                # Aplica o fallback apenas onde a coluna final ainda está vazia.
                 df.loc[df[col_final] == '', col_final] = df[col_fallback].astype(str).str.strip()
         
-        # --- ALTERAÇÃO AQUI: Salva o resultado em um novo arquivo XLSX ---
-        # O argumento index=False impede que o pandas crie uma coluna extra com os índices das linhas.
+        # Salva o DataFrame resultante em um arquivo Excel.
+        # O argumento index=False evita a criação de uma coluna de índice no arquivo final.
         df.to_excel(arquivo_saida, index=False)
         
         return (True, f"Processo concluído com sucesso!\n\nArquivo salvo como:\n{arquivo_saida}")
@@ -77,11 +71,11 @@ def processar_planilha(arquivo_entrada, arquivo_saida):
     except Exception as e:
         return (False, f"Ocorreu um erro inesperado:\n{e}")
 
-# ==============================================================================
-# --- INTERFACE GRÁFICA (Não precisa mexer aqui) ---
-# ==============================================================================
 def criar_interface():
+    """Cria e configura a interface gráfica do usuário com Tkinter."""
+    
     def selecionar_arquivo_entrada():
+        """Abre uma caixa de diálogo para o usuário selecionar o arquivo de entrada."""
         filepath = filedialog.askopenfilename(
             title="Selecione a planilha de pedidos",
             filetypes=(("Excel/CSV", "*.xlsx *.csv"), ("Todos os arquivos", "*.*"))
@@ -93,13 +87,14 @@ def criar_interface():
             entry_entrada.config(state='readonly')
 
     def iniciar_processamento():
+        """Inicia o processo de unificação das colunas a partir do arquivo selecionado."""
         arquivo_entrada = entry_entrada.get()
 
         if not arquivo_entrada:
             messagebox.showerror("Atenção", "Por favor, selecione um arquivo para processar.")
             return
 
-        # --- ALTERAÇÃO AQUI: Sugere o nome do arquivo de saída com a extensão .xlsx ---
+        # Pede ao usuário para definir o local e nome do arquivo de saída.
         arquivo_saida = filedialog.asksaveasfilename(
             title="Salvar arquivo processado como...",
             defaultextension=".xlsx",
@@ -117,23 +112,27 @@ def criar_interface():
         else:
             messagebox.showerror("Erro", mensagem)
 
-    # --- Criação da Janela ---
+    # --- Configuração da Janela Principal ---
     root = tk.Tk()
-    root.title("Gerador de Colunas Unificadas")
+    root.title("Unificador de Colunas")
     root.geometry("500x150")
     root.resizable(False, False)
 
     frame = ttk.Frame(root, padding="20")
     frame.pack(expand=True, fill="both")
 
+    # --- Widgets da Interface ---
     ttk.Label(frame, text="Selecione a planilha para unificar as colunas:").grid(row=0, column=0, columnspan=2, sticky="w", pady=5)
+    
     entry_entrada = ttk.Entry(frame, width=50, state='readonly')
     entry_entrada.grid(row=1, column=0, sticky="ew")
+    
     ttk.Button(frame, text="Selecionar Arquivo...", command=selecionar_arquivo_entrada).grid(row=1, column=1, padx=(5,0))
 
     processar_button = ttk.Button(frame, text="Processar e Salvar", command=iniciar_processamento, style="Accent.TButton")
     processar_button.grid(row=2, column=0, columnspan=2, pady=(20,0), ipady=5)
 
+    # --- Estilo ---
     style = ttk.Style(root)
     style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"))
     
